@@ -34,11 +34,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install -U . ; fi
+    - name: Verify browser resources
+      run: python -W error -m unittest discover -s tests -v
     - name: run example
       run: |
         python example/test_workflow.py
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v3.1.2
+      uses: actions/upload-artifact@v4
       with:
         # Artifact name
         name:  screenshots
