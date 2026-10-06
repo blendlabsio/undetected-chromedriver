@@ -248,6 +248,7 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
 
         finalize(self, self._ensure_close, self)
         self.debug = debug
+        self.browser_process = None
         self.patcher = Patcher(
             executable_path=driver_executable_path,
             force=patcher_force_close,
@@ -449,14 +450,14 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
                 options.binary_location, *options.arguments
             )
         else:
-            browser = subprocess.Popen(
+            self.browser_process = subprocess.Popen(
                 [options.binary_location, *options.arguments],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=IS_POSIX,
             )
-            self.browser_pid = browser.pid
+            self.browser_pid = self.browser_process.pid
 
 
         service = selenium.webdriver.chromium.service.ChromiumService(
@@ -772,11 +773,25 @@ class Chrome(selenium.webdriver.chrome.webdriver.WebDriver):
             logger.debug("shutting down reactor")
         except AttributeError:
             pass
-        try:
-            os.kill(self.browser_pid, 15)
-            logger.debug("gracefully closed browser")
-        except Exception as e:  # noqa
-            pass
+        browser_process = getattr(self, "browser_process", None)
+        if browser_process is not None:
+            if browser_process.poll() is None:
+                browser_process.terminate()
+            try:
+                browser_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                browser_process.kill()
+                browser_process.wait()
+            for pipe in (browser_process.stdin, browser_process.stdout,
+                         browser_process.stderr):
+                if pipe is not None:
+                    pipe.close()
+        else:
+            try:
+                os.kill(self.browser_pid, 15)
+                logger.debug("gracefully closed browser")
+            except Exception as e:  # noqa
+                pass
         if (
             hasattr(self, "keep_user_data_dir")
             and hasattr(self, "user_data_dir")

@@ -43,6 +43,7 @@ setup(
     install_requires=[
         "selenium>=4.9.0",
         "requests",
+        "packaging",
         "websockets",
     ],
     package_data={"undetected_chromedriver": [os.path.join("example", "example.py")]},
